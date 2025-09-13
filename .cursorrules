@@ -1,0 +1,314 @@
+# Cursor AI Rules for NSF Multi-Platform AI Automation Template
+
+## 🎯 Project Overview
+This is a comprehensive template for multi-platform AI automation projects using React (web), React Native CLI (mobile), FastAPI (backend), n8n (automation), and Supabase (database).
+
+## 🏗️ Architecture Principles
+
+### Core Technologies
+- **Web Frontend**: React 18+ with Vite, TypeScript, Tailwind CSS
+- **Mobile Frontend**: React Native CLI (iOS/Android), TypeScript, NativeWind
+- **Backend**: FastAPI (Python 3.11+), Pydantic, SQLAlchemy
+- **Database**: Supabase (PostgreSQL), Row Level Security
+- **Automation**: Self-hosted n8n workflows
+- **AI Integration**: OpenAI API, Anthropic Claude
+- **State Management**: Redux Toolkit (web) / Zustand (mobile)
+- **Testing**: Jest, React Testing Library, pytest
+- **Deployment**: Docker, Docker Compose
+
+### Design Patterns
+- **Clean Architecture**: Separation of concerns, dependency inversion
+- **SOLID Principles**: Single responsibility, open/closed, Liskov substitution
+- **Repository Pattern**: Data access abstraction
+- **Factory Pattern**: Object creation abstraction
+- **Observer Pattern**: Event-driven architecture
+- **Strategy Pattern**: Algorithm selection at runtime
+
+## 📁 Project Structure Rules
+
+### Directory Organization
+```
+project/
+├── web/                 # React web application
+│   ├── src/
+│   │   ├── components/  # Reusable UI components
+│   │   ├── pages/       # Route-based pages
+│   │   ├── hooks/       # Custom React hooks
+│   │   ├── store/       # Redux store and slices
+│   │   ├── services/    # API services
+│   │   ├── utils/       # Utility functions
+│   │   └── types/       # TypeScript type definitions
+├── mobile/              # React Native mobile application
+│   ├── src/
+│   │   ├── components/  # Reusable UI components
+│   │   ├── screens/     # Screen components
+│   │   ├── navigation/  # Navigation configuration
+│   │   ├── store/       # Zustand store
+│   │   ├── services/    # API services
+│   │   ├── utils/       # Utility functions
+│   │   └── types/       # TypeScript type definitions
+├── backend/             # FastAPI application
+│   ├── app/
+│   │   ├── api/         # API routes
+│   │   ├── core/        # Core configuration
+│   │   ├── models/      # Database models
+│   │   ├── schemas/     # Pydantic schemas
+│   │   ├── services/    # Business logic
+│   │   └── utils/       # Utility functions
+├── shared/              # Shared code between platforms
+│   ├── types/           # Shared TypeScript types
+│   ├── utils/           # Shared utility functions
+│   └── constants/       # Shared constants
+├── n8n/                 # n8n workflows and configs
+├── supabase/            # Database migrations and configs
+├── docs/                # Documentation
+├── scripts/             # Development and deployment scripts
+└── .github/             # GitHub workflows and templates
+```
+
+## 🧪 Testing Requirements
+
+### Test-Driven Development (TDD)
+- **Write tests first**: Red-Green-Refactor cycle
+- **Test coverage**: Minimum 80% code coverage
+- **Test types**: Unit, integration, E2E tests
+- **Testing tools**:
+  - Frontend: Jest, React Testing Library, Cypress
+  - Backend: pytest, FastAPI TestClient
+  - Mobile: Jest, React Native Testing Library, Detox
+
+### Test Structure
+```typescript
+// Example test structure
+describe('ComponentName', () => {
+  describe('when condition', () => {
+    it('should expected behavior', () => {
+      // Arrange
+      // Act
+      // Assert
+    });
+  });
+});
+```
+
+## 📝 Code Quality Standards
+
+### TypeScript Rules
+- **Strict mode**: Always enabled
+- **No any types**: Use proper typing or unknown
+- **Interface over type**: Prefer interfaces for object shapes
+- **Explicit returns**: Always specify return types for functions
+- **Null safety**: Use optional chaining and nullish coalescing
+
+### Code Style
+- **ESLint**: Airbnb configuration with custom rules
+- **Prettier**: Consistent code formatting
+- **Import order**: External → Internal → Relative
+- **Naming conventions**:
+  - Components: PascalCase (UserProfile)
+  - Functions/Variables: camelCase (getUserData)
+  - Constants: UPPER_SNAKE_CASE (API_BASE_URL)
+  - Files: kebab-case (user-profile.tsx)
+
+### Documentation Requirements
+- **JSDoc**: All public functions and classes
+- **README**: Comprehensive setup and usage guides
+- **API Documentation**: Auto-generated from FastAPI
+- **Architecture Decision Records**: Document major decisions
+- **Changelog**: Automated from conventional commits
+
+## 🔄 Git Workflow Rules
+
+### Branch Strategy
+- **main**: Production-ready code
+- **develop**: Integration branch for features
+- **feature/**: Feature development branches
+- **hotfix/**: Critical bug fixes
+- **release/**: Release preparation branches
+
+### Commit Standards
+- **Conventional Commits**: type(scope): description
+- **Types**: feat, fix, docs, style, refactor, test, chore
+- **Examples**:
+  - `feat(auth): add OAuth2 login`
+  - `fix(api): resolve user validation bug`
+  - `docs(readme): update installation guide`
+
+### Pull Request Requirements
+- **Title**: Clear, descriptive title
+- **Description**: What, why, how, testing
+- **Checklist**: All items completed
+- **Review**: Minimum 1 approval required
+- **CI/CD**: All checks must pass
+
+## 🤖 AI Behavior Guidelines
+
+### When to Ask Questions
+- **Architecture decisions**: Major structural changes
+- **Technology choices**: New libraries or frameworks
+- **Security concerns**: Authentication, authorization, data handling
+- **Performance implications**: Optimization strategies
+- **Breaking changes**: API modifications
+
+### When to Make Decisions
+- **Code implementation**: Following established patterns
+- **Test writing**: Standard test cases
+- **Documentation**: Technical documentation updates
+- **Refactoring**: Code improvement within existing patterns
+- **Bug fixes**: Clear, isolated issues
+
+### Context Management
+- **Always read**: Current file and related files
+- **Check dependencies**: Package.json, requirements.txt
+- **Review tests**: Existing test patterns
+- **Consider impact**: Cross-platform implications
+- **Maintain consistency**: Follow established patterns
+
+## 🚀 Development Process
+
+### Feature Development
+1. **Create feature branch**: `git checkout -b feature/feature-name`
+2. **Write tests first**: TDD approach
+3. **Implement feature**: Following architecture patterns
+4. **Update documentation**: Code comments, README, API docs
+5. **Create pull request**: With comprehensive description
+6. **Code review**: Address feedback
+7. **Merge**: After approval and CI/CD success
+
+### Bug Fixes
+1. **Create hotfix branch**: `git checkout -b hotfix/bug-description`
+2. **Write failing test**: Reproduce the bug
+3. **Fix the bug**: Minimal change approach
+4. **Verify fix**: Test passes, no regressions
+5. **Update changelog**: Document the fix
+6. **Create pull request**: With bug description
+
+### Release Process
+1. **Create release branch**: `git checkout -b release/v1.0.0`
+2. **Update version**: Package.json, pyproject.toml
+3. **Update changelog**: Document all changes
+4. **Final testing**: Full test suite
+5. **Create release**: GitHub release with notes
+6. **Deploy**: Automated deployment pipeline
+
+## 🔒 Security Guidelines
+
+### Data Protection
+- **Environment variables**: Never commit secrets
+- **API keys**: Use secure storage
+- **Database**: Row Level Security enabled
+- **Authentication**: JWT tokens with proper expiration
+- **Authorization**: Role-based access control
+
+### Code Security
+- **Dependencies**: Regular security audits
+- **Input validation**: Sanitize all user inputs
+- **SQL injection**: Use parameterized queries
+- **XSS prevention**: Proper output encoding
+- **CSRF protection**: Token-based protection
+
+## 📊 Performance Standards
+
+### Frontend Performance
+- **Bundle size**: Monitor and optimize
+- **Lazy loading**: Code splitting for routes
+- **Image optimization**: WebP format, proper sizing
+- **Caching**: Proper cache headers
+- **Core Web Vitals**: LCP < 2.5s, FID < 100ms, CLS < 0.1
+
+### Backend Performance
+- **Response time**: API responses < 200ms
+- **Database queries**: Optimized with proper indexing
+- **Caching**: Redis for frequently accessed data
+- **Rate limiting**: Prevent abuse
+- **Monitoring**: Application performance monitoring
+
+### Mobile Performance
+- **Bundle size**: Optimize for mobile networks
+- **Memory usage**: Monitor and optimize
+- **Battery usage**: Efficient algorithms
+- **Offline support**: Proper caching strategies
+- **App size**: Minimize download size
+
+## 🎨 UI/UX Standards
+
+### Design System
+- **Consistent spacing**: 4px grid system
+- **Color palette**: Accessible color combinations
+- **Typography**: Clear hierarchy and readability
+- **Components**: Reusable, accessible components
+- **Responsive design**: Mobile-first approach
+
+### Accessibility
+- **WCAG 2.1 AA**: Minimum compliance level
+- **Keyboard navigation**: Full keyboard support
+- **Screen readers**: Proper ARIA labels
+- **Color contrast**: 4.5:1 minimum ratio
+- **Focus indicators**: Clear focus states
+
+## 🔧 Development Tools
+
+### Required Tools
+- **IDE**: VS Code with recommended extensions
+- **Git**: Latest version with proper configuration
+- **Docker**: For containerized development
+- **Node.js**: LTS version
+- **Python**: 3.11+ with virtual environment
+- **React Native CLI**: For mobile development
+
+### Recommended Extensions
+- **ESLint**: Code linting
+- **Prettier**: Code formatting
+- **TypeScript**: Type checking
+- **GitLens**: Git integration
+- **Thunder Client**: API testing
+- **Error Lens**: Error highlighting
+
+## 📈 Monitoring and Analytics
+
+### Application Monitoring
+- **Error tracking**: Sentry or similar
+- **Performance monitoring**: Application metrics
+- **User analytics**: Privacy-compliant tracking
+- **Uptime monitoring**: Service availability
+- **Log aggregation**: Centralized logging
+
+### Business Metrics
+- **User engagement**: Key user actions
+- **Feature usage**: Feature adoption rates
+- **Performance metrics**: Response times, errors
+- **Business KPIs**: Custom business metrics
+
+## 🚨 Error Handling
+
+### Frontend Error Handling
+- **Error boundaries**: React error boundaries
+- **Global error handler**: Unhandled promise rejections
+- **User feedback**: Clear error messages
+- **Fallback UI**: Graceful degradation
+- **Error reporting**: Automatic error reporting
+
+### Backend Error Handling
+- **Exception handling**: Proper try-catch blocks
+- **HTTP status codes**: Appropriate status codes
+- **Error logging**: Structured error logging
+- **Validation errors**: Clear validation messages
+- **Graceful degradation**: Fallback mechanisms
+
+## 📚 Documentation Standards
+
+### Code Documentation
+- **JSDoc comments**: All public functions
+- **README files**: Comprehensive guides
+- **API documentation**: Auto-generated docs
+- **Architecture docs**: System design documents
+- **Deployment guides**: Step-by-step instructions
+
+### User Documentation
+- **User guides**: Feature usage instructions
+- **FAQ**: Common questions and answers
+- **Video tutorials**: Screen recordings
+- **Help center**: Searchable knowledge base
+- **Support channels**: Clear support options
+
+Remember: Always prioritize code quality, user experience, and maintainability. When in doubt, ask questions rather than making assumptions. Follow established patterns and maintain consistency across the entire codebase.
