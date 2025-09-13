@@ -1,15 +1,18 @@
-# NSF - AI Automation Stack
+# NSF - Multi-Platform AI Automation Template
 
-A modern full-stack application combining Next.js, FastAPI, self-hosted n8n, and Supabase for AI-powered automation workflows.
+A comprehensive full-stack template combining React, React Native CLI, FastAPI, self-hosted n8n, and Supabase for AI-powered automation workflows across web and mobile platforms.
 
 ## 🚀 Tech Stack
 
-- **Frontend**: Next.js 14+ (App Router)
+- **Web Frontend**: React 18+ with Vite
+- **Mobile Frontend**: React Native CLI (iOS & Android)
 - **Backend**: FastAPI (Python 3.11+)
 - **Database**: Supabase (PostgreSQL)
 - **Automation**: Self-hosted n8n
 - **AI Integration**: OpenAI API, Anthropic Claude
 - **Deployment**: Docker & Docker Compose
+- **State Management**: Redux Toolkit / Zustand
+- **Styling**: Tailwind CSS (Web) / NativeWind (Mobile)
 
 ## 📋 Prerequisites
 
@@ -17,6 +20,10 @@ A modern full-stack application combining Next.js, FastAPI, self-hosted n8n, and
 - Python 3.11+
 - Docker & Docker Compose
 - Git
+- **Mobile Development**:
+  - Xcode (iOS development)
+  - Android Studio (Android development)
+  - React Native CLI: `npm install -g @react-native-community/cli`
 
 ## 🛠️ Quick Start
 
@@ -42,7 +49,8 @@ make dev
 ```
 
 ### 4. Access Applications
-- **Frontend**: http://localhost:3000
+- **Web Frontend**: http://localhost:3000
+- **Mobile App**: Metro bundler on http://localhost:8081
 - **Backend API**: http://localhost:8000
 - **n8n Dashboard**: http://localhost:5678
 - **Supabase Studio**: http://localhost:54323
@@ -51,22 +59,45 @@ make dev
 
 ```
 nsf/
-├── frontend/          # Next.js application
-├── backend/           # FastAPI application
-├── n8n/              # n8n workflows and configs
-├── supabase/         # Database migrations and configs
-├── docker-compose.yml
-├── .env.example
+├── web/                    # React web application
+├── mobile/                 # React Native mobile application
+├── backend/                # FastAPI with Clean Architecture
+│   ├── app/
+│   │   ├── domain/         # Business logic (Entities, Value Objects, Domain Services)
+│   │   ├── application/    # Use cases (Commands, Queries, Handlers)
+│   │   ├── infrastructure/ # External concerns (Repositories, Event Bus, AI Clients)
+│   │   └── presentation/  # API layer (FastAPI routes, middleware)
+│   ├── main.py            # Application entry point
+│   └── requirements.txt   # Python dependencies
+├── shared/                # Shared utilities and types
+├── n8n/                   # n8n workflows and configs
+├── supabase/              # Database migrations and configs
+├── docs/                  # Documentation and guides
+├── scripts/               # Development and deployment scripts
+├── .github/               # GitHub workflows and templates
+├── docker-compose.yml     # Complete orchestration
+├── env.template           # Parameterized configuration
+├── .cursorrules           # Cursor AI behavior rules
 └── README.md
 ```
 
 ## 🔧 Development
 
-### Frontend (Next.js)
+### Web Frontend (React + Vite)
 ```bash
-cd frontend
+cd web
 npm install
 npm run dev
+```
+
+### Mobile Frontend (React Native CLI)
+```bash
+cd mobile
+npm install
+# iOS
+npx react-native run-ios
+# Android
+npx react-native run-android
 ```
 
 ### Backend (FastAPI)
@@ -85,12 +116,33 @@ uvicorn main:app --reload
 - Database migrations in `supabase/migrations/`
 - Edge functions in `supabase/functions/`
 
-## 🤖 AI Features
+## 🎯 Template Features
 
-- **Workflow Automation**: n8n-powered automation
-- **AI Integration**: OpenAI & Claude API integration
-- **Smart Triggers**: Event-driven automation
-- **Data Processing**: Real-time data pipelines
+This repository serves as a **comprehensive template** for future projects with:
+
+- **Multi-Platform Support**: Web (React) + Mobile (React Native CLI)
+- **AI-Powered Automation**: n8n workflows with AI integration
+- **Clean Architecture**: Domain-Driven Design (DDD) with CQRS pattern
+- **Event-Driven Architecture**: Asynchronous communication between services
+- **Modern Development Practices**: TDD, CI/CD, automated testing
+- **Professional Workflow**: Git best practices, code review, documentation
+- **Scalable Architecture**: Microservices-ready, SOLID principles, design patterns
+- **Production Ready**: Docker deployment, monitoring, error handling
+
+## 🚀 Template Usage
+
+### For New Projects:
+1. Use this repository as a template
+2. Customize project name and configuration
+3. Update environment variables
+4. Start development with established patterns
+
+### Customization Points:
+- Project name and branding
+- Database schema and migrations
+- API endpoints and business logic
+- UI/UX design and components
+- n8n workflow templates
 
 ## 🚀 Deployment
 
