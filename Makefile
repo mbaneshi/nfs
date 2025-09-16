@@ -1,6 +1,6 @@
 # NSF Multi-Platform AI Automation Template - Makefile
 
-.PHONY: help start stop restart logs clean build test
+.PHONY: help start stop restart logs clean build test setup health
 
 # Default target
 help:
@@ -14,10 +14,14 @@ help:
 	@echo "  make logs-web  - View web app logs"
 	@echo "  make logs-api  - View API logs"
 	@echo "  make logs-n8n  - View n8n logs"
+	@echo "  make logs-supabase - View Supabase logs"
+	@echo "  make logs-minio - View MinIO logs"
+	@echo "  make logs-kong - View Kong logs"
 	@echo "  make build     - Build all services"
 	@echo "  make clean     - Clean up containers and volumes"
 	@echo "  make test      - Run tests"
 	@echo "  make setup     - Initial setup"
+	@echo "  make health    - Check service health"
 
 # Start all services
 start:
@@ -36,6 +40,9 @@ start:
 	@echo "   API:          https://api.edcopo.info"
 	@echo "   n8n:          https://automation.edcopo.info"
 	@echo "   Supabase:     https://db.edcopo.info"
+	@echo "   Storage:      https://storage.edcopo.info"
+	@echo "   Studio:       https://studio.edcopo.info"
+	@echo "   Health:       https://health.edcopo.info"
 
 # Stop all services
 stop:
@@ -58,6 +65,15 @@ logs-api:
 logs-n8n:
 	@docker-compose logs -f n8n
 
+logs-supabase:
+	@docker-compose logs -f supabase-db supabase-auth supabase-rest supabase-realtime supabase-storage supabase-studio
+
+logs-minio:
+	@docker-compose logs -f minio
+
+logs-kong:
+	@docker-compose logs -f kong
+
 # Build all services
 build:
 	@echo "🔨 Building all services..."
@@ -74,6 +90,17 @@ test:
 	@echo "🧪 Running tests..."
 	@docker-compose exec backend pytest
 	@docker-compose exec web npm test
+
+# Check service health
+health:
+	@echo "🏥 Checking service health..."
+	@docker-compose ps
+	@echo ""
+	@echo "🔍 Service status:"
+	@docker-compose exec caddy curl -s http://localhost/health || echo "❌ Caddy not responding"
+	@docker-compose exec kong curl -s http://localhost:8001/status || echo "❌ Kong not responding"
+	@docker-compose exec minio curl -s http://localhost:9000/minio/health/live || echo "❌ MinIO not responding"
+	@docker-compose exec supabase-db pg_isready -U postgres || echo "❌ Supabase DB not responding"
 
 # Initial setup
 setup:

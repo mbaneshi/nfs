@@ -22,7 +22,36 @@ services:
       - web
       - backend
       - n8n
-      - supabase
+      - kong
+
+  # Kong API Gateway
+  kong:
+    image: kong:3.4-alpine
+    container_name: ${PROJECT_NAME:-nsf}_kong
+    restart: unless-stopped
+    ports:
+      - "${KONG_PORT:-8000}:8000"
+      - "${KONG_HTTPS_PORT:-8443}:8443"
+      - "${KONG_ADMIN_PORT:-8001}:8001"
+      - "${KONG_ADMIN_HTTPS_PORT:-8444}:8444"
+    environment:
+      - KONG_DATABASE=off
+      - KONG_DECLARATIVE_CONFIG=/kong/kong.yml
+      - KONG_PROXY_ACCESS_LOG=/dev/stdout
+      - KONG_ADMIN_ACCESS_LOG=/dev/stdout
+      - KONG_PROXY_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_LISTEN=0.0.0.0:8001
+      - KONG_ADMIN_GUI_LISTEN=0.0.0.0:8002
+    volumes:
+      - ./kong/kong.yml:/kong/kong.yml:ro
+    networks:
+      - ${DOCKER_NETWORK_NAME:-nsf_network}
+    depends_on:
+      - supabase-auth
+      - supabase-rest
+      - supabase-realtime
+      - supabase-storage
 
   # React web application
   web:
@@ -38,6 +67,7 @@ services:
       - NEXT_PUBLIC_API_URL=${API_URL:-https://api.edcopo.info}
       - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL:-https://db.edcopo.info}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_MINIO_URL=${MINIO_URL:-https://storage.edcopo.info}
     volumes:
       - ./web:/app
       - /app/node_modules
@@ -45,7 +75,7 @@ services:
       - ${DOCKER_NETWORK_NAME:-nsf_network}
     depends_on:
       - backend
-      - supabase
+      - supabase-auth
 
   # FastAPI backend
   backend:
@@ -67,6 +97,11 @@ services:
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - SUPABASE_DB_URL=${SUPABASE_DB_URL}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-nsf-storage}
+      - MINIO_SECURE=${MINIO_SECURE:-false}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
       - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
@@ -79,7 +114,8 @@ services:
     networks:
       - ${DOCKER_NETWORK_NAME:-nsf_network}
     depends_on:
-      - supabase
+      - supabase-auth
+      - minio
 
   # n8n automation platform
   n8n:
@@ -105,8 +141,8 @@ services:
       - WEBHOOK_URL=${N8N_URL:-https://automation.edcopo.info}
       - GENERIC_TIMEZONE=UTC
       - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=supabase
-      - DB_POSTGRESDB_PORT=54322
+      - DB_POSTGRESDB_HOST=supabase-db
+      - DB_POSTGRESDB_PORT=5432
       - DB_POSTGRESDB_DATABASE=postgres
       - DB_POSTGRESDB_USER=postgres
       - DB_POSTGRESDB_PASSWORD=${SUPABASE_DB_PASSWORD}
@@ -117,34 +153,269 @@ services:
     networks:
       - ${DOCKER_NETWORK_NAME:-nsf_network}
     depends_on:
-      - supabase
+      - supabase-db
 
-  # Supabase local development
-  supabase:
-    image: supabase/postgres:15.1.0.117
-    container_name: ${PROJECT_NAME:-nsf}_supabase
+  # MinIO S3-compatible storage
+  minio:
+    image: minio/minio:latest
+    container_name: ${PROJECT_NAME:-nsf}_minio
     restart: unless-stopped
     ports:
-      - "${SUPABASE_PORT:-54323}:54323"
-      - "${SUPABASE_DB_PORT:-54322}:54322"
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+      - MINIO_BROWSER_REDIRECT_URL=${MINIO_BROWSER_REDIRECT_URL:-https://storage.edcopo.info}
+    volumes:
+      - minio_data:/data
+    networks:
+      - ${DOCKER_NETWORK_NAME:-nsf_network}
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Supabase Database
+  supabase-db:
+    image: supabase/postgres:15.1.0.117
+    container_name: ${PROJECT_NAME:-nsf}_supabase_db
+    restart: unless-stopped
+    ports:
+      - "${SUPABASE_DB_PORT:-5432}:5432"
     environment:
       - POSTGRES_HOST=${SUPABASE_DB_HOST:-localhost}
-      - POSTGRES_PORT=${SUPABASE_DB_PORT:-54322}
+      - POSTGRES_PORT=${SUPABASE_DB_PORT:-5432}
       - POSTGRES_DB=${SUPABASE_DB_NAME:-postgres}
       - POSTGRES_USER=${SUPABASE_DB_USER:-postgres}
       - POSTGRES_PASSWORD=${SUPABASE_DB_PASSWORD}
       - POSTGRES_DB_URL=${SUPABASE_DB_URL}
-      - JWT_SECRET=${JWT_SECRET_KEY}
-      - ANON_KEY=${SUPABASE_ANON_KEY}
-      - SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
     volumes:
       - supabase_data:/var/lib/postgresql/data
       - ./supabase/migrations:/docker-entrypoint-initdb.d/migrations:ro
       - ./supabase/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
     networks:
       - ${DOCKER_NETWORK_NAME:-nsf_network}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Redis for caching (optional)
+  # Supabase Auth (GoTrue)
+  supabase-auth:
+    image: supabase/gotrue:v2.99.0
+    container_name: ${PROJECT_NAME:-nsf}_supabase_auth
+    restart: unless-stopped
+    ports:
+      - "${SUPABASE_AUTH_PORT:-9999}:9999"
+    environment:
+      - GOTRUE_API_HOST=0.0.0.0
+      - GOTRUE_API_PORT=9999
+      - GOTRUE_DB_DRIVER=postgres
+      - GOTRUE_DB_DATABASE_URL=postgres://postgres:${SUPABASE_DB_PASSWORD}@supabase-db:5432/postgres?sslmode=disable
+      - GOTRUE_SITE_URL=${SUPABASE_SITE_URL:-https://app.edcopo.info}
+      - GOTRUE_URI_ALLOW_LIST=${SUPABASE_URI_ALLOW_LIST:-https://app.edcopo.info,https://api.edcopo.info}
+      - GOTRUE_DISABLE_SIGNUP=${SUPABASE_DISABLE_SIGNUP:-false}
+      - GOTRUE_JWT_ADMIN_ROLES=service_role
+      - GOTRUE_JWT_AUD=authenticated
+      - GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated
+      - GOTRUE_JWT_EXP=${SUPABASE_JWT_EXP:-3600}
+      - GOTRUE_JWT_SECRET=${JWT_SECRET_KEY}
+      - GOTRUE_EXTERNAL_EMAIL_ENABLED=true
+      - GOTRUE_MAILER_AUTOCONFIRM=true
+      - GOTRUE_SMTP_HOST=${SMTP_HOST:-localhost}
+      - GOTRUE_SMTP_PORT=${SMTP_PORT:-587}
+      - GOTRUE_SMTP_USER=${SMTP_USER}
+      - GOTRUE_SMTP_PASS=${SMTP_PASS}
+      - GOTRUE_SMTP_ADMIN_EMAIL=${SMTP_ADMIN_EMAIL:-admin@edcopo.info}
+      - GOTRUE_SMTP_SENDER_NAME=${SMTP_SENDER_NAME:-NSF Automation}
+    networks:
+      - ${DOCKER_NETWORK_NAME:-nsf_network}
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+  # Supabase REST API (PostgREST)
+  supabase-rest:
+    image: postgrest/postgrest:v12.0.1
+    container_name: ${PROJECT_NAME:-nsf}_supabase_rest
+    restart: unless-stopped
+    ports:
+      - "${SUPABASE_REST_PORT:-3000}:3000"
+    environment:
+      - PGRST_DB_URI=postgres://postgres:${SUPABASE_DB_PASSWORD}@supabase-db:5432/postgres
+      - PGRST_DB_SCHEMAS=public,storage,graphql_public
+      - PGRST_DB_ANON_ROLE=anon
+      - PGRST_JWT_SECRET=${JWT_SECRET_KEY}
+      - PGRST_DB_USE_LEGACY_GUCS=false
+      - PGRST_APP_SETTINGS_JWT_SECRET=${JWT_SECRET_KEY}
+      - PGRST_APP_SETTINGS_JWT_EXP=${SUPABASE_JWT_EXP:-3600}
+    networks:
+      - ${DOCKER_NETWORK_NAME:-nsf_network}
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+  # Supabase Realtime
+  supabase-realtime:
+    image: supabase/realtime:v2.25.35
+    container_name: ${PROJECT_NAME:-nsf}_supabase_realtime
+    restart: unless-stopped
+    ports:
+      - "${SUPABASE_REALTIME_PORT:-4000}:4000"
+    environment:
+      - PORT=4000
+      - DB_HOST=supabase-db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=${SUPABASE_DB_PASSWORD}
+      - DB_NAME=postgres
+      - DB_AFTER_CONNECT_QUERY=SET search_path TO _realtime
+      - DB_ENC_KEY=${SUPABASE_DB_ENC_KEY}
+      - API_JWT_SECRET=${JWT_SECRET_KEY}
+      - FLY_ALLOC_ID=fly123
+      - FLY_APP_NAME=realtime
+      - SECRET_KEY_BASE=${SUPABASE_SECRET_KEY_BASE}
+      - ERL_AFLAGS=-proto_dist inet_tcp
+      - ENABLE_TAILSCALE=false
+      - DNS_NODES=''
+    networks:
+      - ${DOCKER_NETWORK_NAME:-nsf_network}
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+  # Supabase Storage
+  supabase-storage:
+    image: supabase/storage-api:v0.40.4
+    container_name: ${PROJECT_NAME:-nsf}_supabase_storage
+    restart: unless-stopped
+    ports:
+      - "${SUPABASE_STORAGE_PORT:-5000}:5000"
+    environment:
+      - ANON_KEY=${SUPABASE_ANON_KEY}
+      - SERVICE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - POSTGREST_URL=http://supabase-rest:3000
+      - PGRST_JWT_SECRET=${JWT_SECRET_KEY}
+      - DATABASE_URL=postgres://postgres:${SUPABASE_DB_PASSWORD}@supabase-db:5432/postgres
+      - FILE_SIZE_LIMIT=52428800
+      - STORAGE_BACKEND=file
+      - FILE_STORAGE_BACKEND_PATH=/var/lib/storage
+      - TENANT_ID=stub
+      - REGION=stub
+      - GLOBAL_S3_BUCKET=stub
+      - ENABLE_IMAGE_TRANSFORMATION=true
+      - IMGPROXY_URL=http://imgproxy:8080
+    volumes:
+      - storage_data:/var/lib/storage
+    networks:
+      - ${DOCKER_NETWORK_NAME:-nsf_network}
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      supabase-rest:
+        condition: service_started
+
+  # Supabase Studio
+  supabase-studio:
+    image: supabase/studio:20231128-7b5c8e2
+    container_name: ${PROJECT_NAME:-nsf}_supabase_studio
+    restart: unless-stopped
+    ports:
+      - "${SUPABASE_STUDIO_PORT:-3001}:3000"
+    environment:
+      - STUDIO_PG_META_URL=http://supabase-meta:8080
+      - POSTGRES_PASSWORD=${SUPABASE_DB_PASSWORD}
+      - DEFAULT_ORGANIZATION_NAME=${SUPABASE_ORG_NAME:-NSF Automation}
+      - DEFAULT_PROJECT_NAME=${SUPABASE_PROJECT_NAME:-nsf-local}
+      - SUPABASE_URL=${SUPABASE_URL:-https://db.edcopo.info}
+      - SUPABASE_PUBLIC_URL=${SUPABASE_PUBLIC_URL:-https://db.edcopo.info}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - LOGFLARE_API_KEY=${LOGFLARE_API_KEY}
+      - LOGFLARE_URL=${LOGFLARE_URL:-http://supabase-logflare:4000}
+      - LOGFLARE_LOGS_TABLE=postgres_logs
+      - LOGFLARE_LOGS_TABLE_PK=id
+      - LOGFLARE_METRICS_TABLE=postgres_metrics
+      - LOGFLARE_METRICS_TABLE_PK=id
+      - NEXT_PUBLIC_ENABLE_LOGS=true
+      - NEXT_PUBLIC_ENABLE_METRICS=true
+    networks:
+      - ${DOCKER_NETWORK_NAME:-nsf_network}
+    depends_on:
+      - supabase-meta
+      - supabase-logflare
+
+  # Supabase Meta (PostgREST Meta)
+  supabase-meta:
+    image: supabase/postgres-meta:v0.68.0
+    container_name: ${PROJECT_NAME:-nsf}_supabase_meta
+    restart: unless-stopped
+    ports:
+      - "${SUPABASE_META_PORT:-8080}:8080"
+    environment:
+      - PG_META_PORT=8080
+      - PG_META_DB_HOST=supabase-db
+      - PG_META_DB_PORT=5432
+      - PG_META_DB_NAME=postgres
+      - PG_META_DB_USER=postgres
+      - PG_META_DB_PASSWORD=${SUPABASE_DB_PASSWORD}
+    networks:
+      - ${DOCKER_NETWORK_NAME:-nsf_network}
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+  # Supabase Logflare
+  supabase-logflare:
+    image: supabase/logflare:1.4.0
+    container_name: ${PROJECT_NAME:-nsf}_supabase_logflare
+    restart: unless-stopped
+    ports:
+      - "${SUPABASE_LOGFLARE_PORT:-4000}:4000"
+    environment:
+      - LOGFLARE_NODE_HOST=127.0.0.1
+      - LOGFLARE_PORT=4000
+      - LOGFLARE_SINGLE_TENANT=true
+      - LOGFLARE_SUPABASE_MODE=true
+      - LOGFLARE_MIN_CLUSTER_SIZE=1
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=${SUPABASE_DB_PASSWORD}
+      - DB_HOST=supabase-db
+      - DB_PORT=5432
+      - DB_DATABASE=postgres
+      - DB_SCHEMA=public
+      - LOGFLARE_API_KEY=${LOGFLARE_API_KEY}
+      - LOGFLARE_LOGGER_BACKEND_API_KEY=${LOGFLARE_API_KEY}
+    networks:
+      - ${DOCKER_NETWORK_NAME:-nsf_network}
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+  # Imgproxy for image processing
+  imgproxy:
+    image: darthsim/imgproxy:v3.8.0
+    container_name: ${PROJECT_NAME:-nsf}_imgproxy
+    restart: unless-stopped
+    ports:
+      - "${IMGPROXY_PORT:-8080}:8080"
+    environment:
+      - IMGPROXY_BIND=0.0.0.0:8080
+      - IMGPROXY_LOCAL_FILESYSTEM_ROOT=/
+      - IMGPROXY_USE_ETAG=true
+      - IMGPROXY_ENABLE_WEBP_DETECTION=true
+    volumes:
+      - storage_data:/var/lib/storage:ro
+    networks:
+      - ${DOCKER_NETWORK_NAME:-nsf_network}
+    depends_on:
+      - supabase-storage
+
+  # Redis for caching
   redis:
     image: redis:7-alpine
     container_name: ${PROJECT_NAME:-nsf}_redis
@@ -156,6 +427,11 @@ services:
     networks:
       - ${DOCKER_NETWORK_NAME:-nsf_network}
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   caddy_data:
@@ -165,6 +441,10 @@ volumes:
   n8n_data:
     driver: local
   supabase_data:
+    driver: local
+  storage_data:
+    driver: local
+  minio_data:
     driver: local
   redis_data:
     driver: local

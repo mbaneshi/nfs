@@ -456,3 +456,4 @@ sentry.properties
 # Custom Project Files
 # =============================================================================
 # Add any project-specific files to ignore here
+inspiration/
