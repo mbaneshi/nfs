@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 import uuid
 from ..domain import (
@@ -143,7 +143,9 @@ class CreateUserHandler(CommandHandler):
         event = UserCreatedEvent(
             user_id=user.id,
             email=user.email.value,
-            name=user.name
+            name=user.name,
+            event_id=str(uuid.uuid4()),
+            occurred_at=datetime.now(timezone.utc)
         )
         await self.event_bus.publish(event)
         
@@ -176,7 +178,9 @@ class CreateContentHandler(CommandHandler):
         event = ContentCreatedEvent(
             content_id=content.id,
             user_id=content.user_id,
-            content_type=content.content_type.value
+            content_type=content.content_type.value,
+            event_id=str(uuid.uuid4()),
+            occurred_at=datetime.now(timezone.utc)
         )
         await self.event_bus.publish(event)
         
@@ -233,6 +237,86 @@ class CreateWorkflowHandler(CommandHandler):
         
         await self.workflow_repository.save(workflow)
         return workflow
+
+
+class UpdateUserHandler(CommandHandler):
+    def __init__(self, user_repository, event_bus):
+        self.user_repository = user_repository
+        self.event_bus = event_bus
+    
+    async def handle(self, command: UpdateUserCommand) -> User:
+        # Get existing user
+        user = await self.user_repository.get_by_id(command.user_id)
+        if not user:
+            raise UserNotFoundException(f"User {command.user_id} not found")
+        
+        # Update user profile
+        user.update_profile(command.name, command.avatar_url)
+        
+        # Save updated user
+        await self.user_repository.save(user)
+        
+        return user
+
+
+class UpdateContentHandler(CommandHandler):
+    def __init__(self, content_repository, event_bus):
+        self.content_repository = content_repository
+        self.event_bus = event_bus
+    
+    async def handle(self, command: UpdateContentCommand) -> Content:
+        # Get existing content
+        content = await self.content_repository.get_by_id(command.content_id)
+        if not content:
+            raise ContentNotFoundException(f"Content {command.content_id} not found")
+        
+        # Verify user ownership
+        if content.user_id != command.user_id:
+            raise ValueError("User not authorized to update this content")
+        
+        # Update content
+        content.update_content(command.title, command.content_body)
+        
+        # Save updated content
+        await self.content_repository.save(content)
+        
+        return content
+
+
+class ExecuteWorkflowHandler(CommandHandler):
+    def __init__(self, workflow_repository, event_bus):
+        self.workflow_repository = workflow_repository
+        self.event_bus = event_bus
+    
+    async def handle(self, command: ExecuteWorkflowCommand) -> dict:
+        # Get workflow
+        workflow = await self.workflow_repository.get_by_id(command.workflow_id)
+        if not workflow:
+            raise WorkflowNotFoundException(f"Workflow {command.workflow_id} not found")
+        
+        # Verify user ownership
+        if workflow.user_id != command.user_id:
+            raise ValueError("User not authorized to execute this workflow")
+        
+        # Check if workflow can be executed
+        if workflow.status != WorkflowStatus.ACTIVE:
+            raise ValueError("Workflow must be active to execute")
+        
+        # Create execution event
+        event = WorkflowExecutedEvent(
+            workflow_id=workflow.id,
+            user_id=workflow.user_id,
+            execution_data=command.execution_data
+        )
+        
+        # Publish event
+        await self.event_bus.publish(event)
+        
+        return {
+            "workflow_id": workflow.id,
+            "status": "executed",
+            "execution_data": command.execution_data
+        }
 
 
 # Query Handlers

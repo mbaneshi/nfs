@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Optional
 import uuid
@@ -17,11 +17,22 @@ class Email:
     
     def _is_valid_email(self, email: str) -> bool:
         import re
-        pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+        # More strict email validation pattern
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        # Additional checks for common invalid patterns
+        if not email or email.count('@') != 1:
+            return False
+        if email.startswith('.') or email.endswith('.'):
+            return False
+        if '..' in email:
+            return False
         return re.match(pattern, email) is not None
     
     def __eq__(self, other):
         return isinstance(other, Email) and self.value == other.value
+    
+    def __hash__(self):
+        return hash(self.value)
     
     def __str__(self):
         return self.value
@@ -60,15 +71,15 @@ class User:
     
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.utcnow()
+            self.created_at = datetime.now(timezone.utc)
         if self.updated_at is None:
-            self.updated_at = datetime.utcnow()
+            self.updated_at = datetime.now(timezone.utc)
     
     def update_profile(self, name: str, avatar_url: Optional[str] = None):
         self.name = name
         if avatar_url:
             self.avatar_url = avatar_url
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
 
 @dataclass
@@ -85,27 +96,27 @@ class Content:
     
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.utcnow()
+            self.created_at = datetime.now(timezone.utc)
         if self.updated_at is None:
-            self.updated_at = datetime.utcnow()
+            self.updated_at = datetime.now(timezone.utc)
     
     def update_content(self, title: str, content_body: str):
         self.title = title
         self.content_body = content_body
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
     
     def mark_ready(self):
         if self.status != ContentStatus.DRAFT:
             raise ValueError("Only draft content can be marked as ready")
         self.status = ContentStatus.READY
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
     
     def publish(self):
         if self.status != ContentStatus.READY:
             raise ValueError("Only ready content can be published")
         self.status = ContentStatus.PUBLISHED
-        self.published_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        self.published_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(timezone.utc)
         return ContentPublishedEvent(
             content_id=self.id,
             user_id=self.user_id,
@@ -126,23 +137,23 @@ class Workflow:
     
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.utcnow()
+            self.created_at = datetime.now(timezone.utc)
         if self.updated_at is None:
-            self.updated_at = datetime.utcnow()
+            self.updated_at = datetime.now(timezone.utc)
     
     def activate(self):
         self.status = WorkflowStatus.ACTIVE
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
     
     def deactivate(self):
         self.status = WorkflowStatus.INACTIVE
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
     
     def pause(self):
         if self.status != WorkflowStatus.ACTIVE:
             raise ValueError("Only active workflows can be paused")
         self.status = WorkflowStatus.PAUSED
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
 
 # Domain Events
@@ -155,7 +166,7 @@ class DomainEvent:
         if not self.event_id:
             self.event_id = str(uuid.uuid4())
         if not self.occurred_at:
-            self.occurred_at = datetime.utcnow()
+            self.occurred_at = datetime.now(timezone.utc)
 
 
 @dataclass
@@ -177,6 +188,12 @@ class ContentPublishedEvent(DomainEvent):
     content_id: str
     user_id: str
     published_at: datetime
+    
+    def __init__(self, content_id: str, user_id: str, published_at: datetime, event_id: str = None, occurred_at: datetime = None):
+        super().__init__(event_id=event_id or str(uuid.uuid4()), occurred_at=occurred_at or datetime.now(timezone.utc))
+        self.content_id = content_id
+        self.user_id = user_id
+        self.published_at = published_at
 
 
 @dataclass
@@ -184,6 +201,12 @@ class WorkflowExecutedEvent(DomainEvent):
     workflow_id: str
     user_id: str
     execution_data: dict
+    
+    def __init__(self, workflow_id: str, user_id: str, execution_data: dict, event_id: str = None, occurred_at: datetime = None):
+        super().__init__(event_id=event_id or str(uuid.uuid4()), occurred_at=occurred_at or datetime.now(timezone.utc))
+        self.workflow_id = workflow_id
+        self.user_id = user_id
+        self.execution_data = execution_data
 
 
 # Domain Services

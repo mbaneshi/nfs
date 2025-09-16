@@ -214,12 +214,29 @@ security = HTTPBearer()
 
 def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """Extract user ID from JWT token"""
-    # In a real implementation, you would validate the JWT token
-    # and extract the user ID from it
-    # For now, we'll use a simple approach
-    token = credentials.credentials
-    # TODO: Implement JWT validation with Supabase
-    return "current_user_id"  # Placeholder
+    try:
+        import jwt
+        from jwt.exceptions import InvalidTokenError
+        import os
+        
+        token = credentials.credentials
+        jwt_secret = os.getenv("JWT_SECRET_KEY")
+        
+        if not jwt_secret:
+            raise HTTPException(status_code=500, detail="JWT secret not configured")
+        
+        # Decode JWT token
+        payload = jwt.decode(token, jwt_secret, algorithms=["HS256"])
+        user_id = payload.get("sub")
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token: missing user ID")
+        
+        return user_id
+    except InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
 
 
 # FastAPI App
@@ -578,6 +595,135 @@ async def user_registered_webhook(
         return {"success": True, "message": "Welcome email workflow triggered"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to trigger welcome email: {str(e)}")
+
+
+# File Storage Endpoints
+from fastapi import UploadFile, File, Response
+from minio import Minio
+import os
+
+def get_minio_client() -> Minio:
+    """Get MinIO client"""
+    return Minio(
+        endpoint=os.getenv("MINIO_ENDPOINT", "localhost:9000"),
+        access_key=os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
+        secret_key=os.getenv("MINIO_SECRET_KEY", "minioadmin"),
+        secure=False  # Set to True for HTTPS
+    )
+
+def get_storage_service(minio_client: Minio = Depends(get_minio_client)):
+    """Get storage service"""
+    from ..infrastructure import MinIOStorageService
+    return MinIOStorageService(minio_client)
+
+
+@app.post("/files/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    current_user_id: str = Depends(get_current_user_id),
+    storage_service: MinIOStorageService = Depends(get_storage_service)
+):
+    """Upload file to MinIO storage"""
+    try:
+        file_data = await file.read()
+        file_path = await storage_service.upload_file(
+            file_data, 
+            "user-files", 
+            f"{current_user_id}/{file.filename}"
+        )
+        
+        return {
+            "file_path": file_path, 
+            "filename": file.filename,
+            "size": len(file_data),
+            "user_id": current_user_id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
+
+
+@app.get("/files/{file_path:path}")
+async def download_file(
+    file_path: str,
+    current_user_id: str = Depends(get_current_user_id),
+    storage_service: MinIOStorageService = Depends(get_storage_service)
+):
+    """Download file from MinIO storage"""
+    try:
+        # Extract bucket and object name from path
+        path_parts = file_path.split("/", 1)
+        if len(path_parts) != 2:
+            raise HTTPException(status_code=400, detail="Invalid file path")
+        
+        bucket, object_name = path_parts
+        
+        # Verify user owns the file (basic security check)
+        if not object_name.startswith(f"{current_user_id}/"):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        file_data = await storage_service.download_file(bucket, object_name)
+        
+        return Response(
+            content=file_data, 
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f"attachment; filename={object_name.split('/')[-1]}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to download file: {str(e)}")
+
+
+@app.delete("/files/{file_path:path}")
+async def delete_file(
+    file_path: str,
+    current_user_id: str = Depends(get_current_user_id),
+    storage_service: MinIOStorageService = Depends(get_storage_service)
+):
+    """Delete file from MinIO storage"""
+    try:
+        # Extract bucket and object name from path
+        path_parts = file_path.split("/", 1)
+        if len(path_parts) != 2:
+            raise HTTPException(status_code=400, detail="Invalid file path")
+        
+        bucket, object_name = path_parts
+        
+        # Verify user owns the file (basic security check)
+        if not object_name.startswith(f"{current_user_id}/"):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        await storage_service.delete_file(bucket, object_name)
+        
+        return {"success": True, "message": "File deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
+
+
+@app.get("/files")
+async def list_user_files(
+    current_user_id: str = Depends(get_current_user_id),
+    storage_service: MinIOStorageService = Depends(get_storage_service)
+):
+    """List user's files"""
+    try:
+        files = await storage_service.list_files("user-files", prefix=f"{current_user_id}/")
+        
+        return {
+            "files": files,
+            "user_id": current_user_id,
+            "count": len(files)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0"
+    }
 
 
 if __name__ == "__main__":

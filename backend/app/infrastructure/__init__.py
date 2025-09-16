@@ -452,3 +452,54 @@ class UserCreatedEventHandler:
             })
         except Exception as e:
             print(f"Failed to send welcome email: {e}")
+
+
+# MinIO Storage Service
+class MinIOStorageService:
+    def __init__(self, minio_client):
+        self.minio = minio_client
+    
+    async def upload_file(self, file_data: bytes, bucket: str, object_name: str) -> str:
+        """Upload file to MinIO"""
+        try:
+            # Ensure bucket exists
+            if not self.minio.bucket_exists(bucket):
+                self.minio.make_bucket(bucket)
+            
+            # Upload file
+            self.minio.put_object(bucket, object_name, file_data, len(file_data))
+            
+            return f"/{bucket}/{object_name}"
+        except Exception as e:
+            raise Exception(f"Failed to upload file: {e}")
+    
+    async def download_file(self, bucket: str, object_name: str) -> bytes:
+        """Download file from MinIO"""
+        try:
+            response = self.minio.get_object(bucket, object_name)
+            return response.read()
+        except Exception as e:
+            raise Exception(f"Failed to download file: {e}")
+    
+    async def delete_file(self, bucket: str, object_name: str) -> None:
+        """Delete file from MinIO"""
+        try:
+            self.minio.remove_object(bucket, object_name)
+        except Exception as e:
+            raise Exception(f"Failed to delete file: {e}")
+    
+    async def list_files(self, bucket: str, prefix: str = "") -> list:
+        """List files in bucket"""
+        try:
+            objects = self.minio.list_objects(bucket, prefix=prefix, recursive=True)
+            return [obj.object_name for obj in objects]
+        except Exception as e:
+            raise Exception(f"Failed to list files: {e}")
+    
+    async def file_exists(self, bucket: str, object_name: str) -> bool:
+        """Check if file exists"""
+        try:
+            self.minio.stat_object(bucket, object_name)
+            return True
+        except Exception:
+            return False
