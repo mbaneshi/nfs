@@ -28,7 +28,7 @@ start:
 	@echo "🚀 Starting NSF Multi-Platform AI Automation Template..."
 	@if [ ! -f .env ]; then \
 		echo "📝 Creating .env file from template..."; \
-		cp env.template .env; \
+		cp env.example .env; \
 		echo "⚠️  Please edit .env file with your configuration before running again"; \
 		exit 1; \
 	fi
@@ -107,7 +107,7 @@ setup:
 	@echo "⚙️  Setting up NSF Multi-Platform AI Automation Template..."
 	@if [ ! -f .env ]; then \
 		echo "📝 Creating .env file from template..."; \
-		cp env.template .env; \
+		cp env.example .env; \
 	fi
 	@echo "✅ Setup complete!"
 	@echo "📝 Please edit .env file with your configuration"

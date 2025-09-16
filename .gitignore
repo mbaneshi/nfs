@@ -457,3 +457,42 @@ sentry.properties
 # =============================================================================
 # Add any project-specific files to ignore here
 inspiration/
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+
+# Generated keys
+*.key
+*.pem
+*.crt
+
+# Logs
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Reference/inspiration projects
+inspiration/
